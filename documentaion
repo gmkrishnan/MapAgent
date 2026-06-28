@@ -109,6 +109,18 @@ mobile_map/
 
 ---
 
+## Local configuration (environment variables)
+
+The project uses a **`.env`** file to store runtime settings such as API keys and the server host/port.  
+To keep secrets out of the repository we ship a template called **`env.example`**.  
+
+### 1️⃣ Create the real `.env` file
+
+```bash
+# From the repository root
+cp env.example backend/.env
+
+
 ### Optional OpenStreetMap / Leaflet Integration
 We also provide an optional OpenStreetMap‑based map implementation using **Leaflet**. The UI can be switched to this provider via a simple toggle in the header. All core features (marker placement, routing, vehicle telemetry) work identically; only the basemap source changes. To enable it, include the Leaflet CSS/JS assets and set the `mapProvider` variable to "leaflet" in `index.html`. This is optional and does not affect the existing Google Maps setup.
 
