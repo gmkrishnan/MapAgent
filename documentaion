@@ -1,0 +1,129 @@
+# MapAgent – User Interface Guide
+
+## Overview
+MapAgent is a web‑based, API‑first mapping and routing platform powered by an autonomous AI agent. The UI consists of a sidebar that contains several functional sections. Below is a concise description of each section’s purpose and how to use it.
+
+---
+
+## 1. Telemetry & Status
+
+**Location in UI:** The top part of the sidebar under the *"Telemetry & Status"* heading.
+
+**What it shows:**
+- **Odometer:** Current traveled distance (km). You can override the value manually to test different scenarios.
+- **Remaining Fuel:** Fuel level expressed as a percentage, with an interactive slider to simulate consumption.
+- **Est. Range:** Estimated remaining range based on the current fuel level and vehicle efficiency.
+- **GPS Status:** Real‑time status of the device GPS (Ready, Paused, etc.).
+
+**When it is useful:**
+- During a simulated trip you can manually adjust fuel or odometer to see how the AI agent reacts to changes (e.g., low‑fuel warnings, route re‑planning).
+- In a live scenario the values are updated automatically from the backend.
+
+---
+
+## 2. Vehicle Settings
+
+**Location in UI:** Directly below *"Telemetry & Status"*.
+
+**Fields:**
+- **Vehicle Model:** Free‑text field (e.g., "Nexon EV", "Activa").
+- **Year:** Numeric field for the vehicle’s manufacture year.
+- **Fuel Type:** Dropdown – *Petrol, Diesel, Electric (EV)*. Choosing *EV* changes telemetry units (kWh instead of litres).
+- **Tank Capacity / Battery Capacity:** Numeric field (L or kWh). Determines how far the vehicle can travel on a full charge/fuel.
+- **Efficiency (km/L or km/kWh):** Determines how quickly the fuel/battery is consumed.
+
+**Purpose:**
+- These parameters are sent to the backend to compute realistic consumption, remaining range, and to tailor AI‑generated recommendations (e.g., charging stations for EVs). 
+- The AI uses them when answering queries such as *"Find a charging station within my remaining range"*.
+
+---
+
+## 3. Trip Configurations
+
+**Location in UI:** Below *"Vehicle Settings"*.
+
+**Options:**
+- **Use Mobile Real‑time GPS** – When checked, the app will use the device’s GPS to continuously update the current location.
+- **Diet Preference** – Simple filter for restaurant recommendations (Any, Veg).
+- **Current Location / Start Address** – Text‑based address lookup or manual latitude/longitude entry.
+- **Destination Location / Address** – Same as above for the target location.
+
+**Purpose:**
+- These inputs define the *trip context* that the AI agent works with. The backend creates a `TripStartRequest` that contains all of these details.
+- The AI can answer queries like *"Show me nearby vegetarian restaurants on my route"* or *"What is the estimated arrival time given current traffic?"*.
+
+---
+
+## 4. Start Trip Button
+
+**Location in UI:** At the bottom of the sidebar.
+
+**What it does:**
+- Gathers all data entered in the sections above and sends a **POST** request to the `/trip/start` endpoint.
+- The backend initialises an in‑memory trip state, stores the vehicle profile, and begins tracking the route.
+- Once the trip is active the UI:
+  - Enables automatic updates to the map (directions rendering).
+  - Activates the *"Update Trip"* flow which continuously sends the current location to `/trip/update`.
+  - Allows the AI agent to start responding to user queries (e.g., place recommendations, alerts).
+- If the **simulation mode** is disabled, only the *core routing* and *AI query* functionality remains; telemetry controls stay hidden but the trip can still be started and the AI will reason based on the supplied vehicle details.
+
+---
+
+# Developer Guide
+
+## Project Structure
+```
+mobile_map/
+├─ backend/                # FastAPI server
+│   ├─ main.py            # App entry point, routing registration
+│   ├─ trip_simulator/    # Core domain logic
+│   │   ├─ routes.py      # API endpoints (start, update, status, …)
+│   │   ├─ services.py    # Business logic, state handling
+│   │   ├─ schemas.py     # Pydantic request/response models
+│   │   └─ map_client.py  # OSM/Google Maps helpers
+│   └─ templates/         # HTML front‑end (single‑page UI)
+
+└─ Dockerfile, start_server.bat …
+```
+
+## Adding New UI Features
+1. **Create a new HTML block** inside `templates/index.html` – place it inside the `<div class="sidebar">` to keep the layout consistent.
+2. **Style** using the existing CSS variables (`--bg-color`, `--accent-color`, …) so the new block automatically matches the dark theme.
+3. **Expose data** via an `id` attribute and read it in the JavaScript section (bottom of the same file). Use `document.getElementById('my-id').value` to retrieve user input.
+4. **Create a FastAPI route** (e.g., `@router.post('/my-feature')`) inside `trip_simulator/routes.py`. Define request/response models in `schemas.py`.
+5. **Wire the client**: Add a `fetch` call in the JavaScript that posts JSON to the new endpoint and handles the response.
+
+## Extending the Backend
+- **State‑ful data** lives in `trip_simulator/services.py` as the `ActiveTripState` singleton. Add new attributes if needed and update the corresponding helper functions.
+- **Validation** is automatically performed by Pydantic models in `schemas.py`. Extend them to enforce new constraints.
+- **Testing** – Since the API is pure JSON, you can use `curl` or any HTTP client to hit `http://localhost:8000/trip/...` endpoints. Example:
+  ```bash
+  curl -X POST http://localhost:8000/trip/start \
+       -H "Content-Type: application/json" \
+       -d '{"vehicle": {"model":"Nexon EV","year":2023,"fuel_type":"ev","capacity":50,"efficiency":6},"start_location":{"lat":8.0,"lon":77.0},"destination_location":{"lat":8.2,"lon":77.2}}'
+  ```
+
+## Deployment Checklist
+- **Environment variables** (`.env`) must contain `GOOGLE_MAPS_API_KEY`, `GEMINI_API_KEY` (or other LLM credentials), and any other secrets.
+- **Static files** – ensure `templates/` are served correctly by FastAPI.
+
+---
+
+### Optional OpenStreetMap / Leaflet Integration
+We also provide an optional OpenStreetMap‑based map implementation using **Leaflet**. The UI can be switched to this provider via a simple toggle in the header. All core features (marker placement, routing, vehicle telemetry) work identically; only the basemap source changes. To enable it, include the Leaflet CSS/JS assets and set the `mapProvider` variable to "leaflet" in `index.html`. This is optional and does not affect the existing Google Maps setup.
+
+#### OpenStreetMap / Leaflet API Overview
+
+| Component | Availability | Typical Usage |
+|-----------|--------------|---------------|
+| **OpenStreetMap tile server** | Public raster tile endpoint (`https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`) | Use as `L.tileLayer` source in Leaflet. No API key required, respect fair‑use limits. |
+| **Overpass API** | Read‑only query API for OSM vector data | Fetch POIs, roads, etc., via custom queries; return GeoJSON that can be added to Leaflet. |
+| **Nominatim geocoder** | Free address ↔︎ coordinate service (`https://nominatim.openstreetmap.org/search?...`) | Implement address lookup in UI; rate‑limited (~1 req / sec). |
+| **Routing services** | External services built on OSM data (OpenRouteService, OSRM, GraphHopper) | Request route polyline JSON and display via `L.polyline`. Requires separate API keys or self‑hosted instance. |
+| **Leaflet library** | Pure JavaScript map renderer (≈ 30 KB) | Handles pan/zoom, marker placement, layers, and interaction entirely client‑side. |
+
+All of these APIs are **optional** and can be mixed with the existing Google Maps integration. Simply replace the tile layer source and, if needed, add calls to Overpass/Nominatim for search and routing features.
+
+---
+
+*This guide can be copied verbatim into a `README.md` or `docs/USER_GUIDE.md` file for end‑users and developers.*
