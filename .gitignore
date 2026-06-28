@@ -1,0 +1,18 @@
+# Python virtual environment
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+
+# Environment variables containing sensitive API keys
+backend/.env
+.env
+
+# Docker configuration files to exclude
+Dockerfile
+.dockerignore
+
+# OS files
+.DS_Store
+Thumbs.db

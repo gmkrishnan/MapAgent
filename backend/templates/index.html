@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MapAgent – Autonomous Spatial Routing Engine</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: rgba(22, 27, 34, 0.85);
+            --border-color: #30363d;
+            --accent-color: #58a6ff;
+            --text-color: #c9d1d9;
+            --text-muted: #8b949e;
+            --success-color: #2ea44f;
+            --warning-color: #db6d28;
+            --danger-color: #da3633;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        header {
+            background-color: rgba(22, 27, 34, 0.95);
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--accent-color);
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            position: relative;
+            height: calc(100vh - 50px);
+        }
+
+        #map {
+            flex: 1;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .sidebar {
+            width: 380px;
+            background-color: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border-color);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column-reverse;
+            }
+            .sidebar {
+                width: 100%;
+                height: 50%;
+                border-right: none;
+                border-top: 1px solid var(--border-color);
+            }
+            #map {
+                height: 50%;
+            }
+        }
+
+        .section-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin: 15px 0 10px 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 8px;
+            background-color: #21262d;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-color);
+            box-sizing: border-box;
+            font-size: 0.9rem;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .row-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        button.stop {
+            background-color: var(--danger-color);
+        }
+
+        .alert-box {
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            display: none;
+        }
+
+        .alert-info { background: rgba(88, 166, 255, 0.15); border: 1px solid var(--accent-color); color: var(--accent-color); }
+        .alert-success { background: rgba(46, 164, 79, 0.15); border: 1px solid var(--success-color); color: var(--success-color); }
+        .alert-warning { background: rgba(219, 109, 40, 0.15); border: 1px solid var(--warning-color); color: var(--warning-color); }
+        .alert-danger { background: rgba(218, 54, 51, 0.15); border: 1px solid var(--danger-color); color: var(--danger-color); }
+
+        .telemetry-badge {
+            display: flex;
+            justify-content: space-between;
+            background: #161b22;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+
+        .telemetry-badge span.value {
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+
+        #agent-response-box {
+            background: #1f242c;
+            border-left: 4px solid var(--accent-color);
+            padding: 12px;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.9rem;
+            margin-top: 15px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .marker-btn {
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            background: #30363d;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .checkbox-container input {
+            width: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+            <h1 style="font-size: 1.4rem; font-weight: bold; margin: 0;">MapAgent</h1>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Autonomous Spatial Routing Engine</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);" id="gps-status">GPS Ready</div>
+    </header>
+
+    <div class="main-container">
+        <div class="sidebar">
+            <div id="alert-container" class="alert-box"></div>
+
+            <div class="section-title">Telemetry & Status</div>
+            <div class="telemetry-badge" style="display: flex; align-items: center; justify-content: space-between;">
+                <span>Odometer</span>
+                <div style="display: flex; align-items: center; gap: 4px;">
+                    <input type="number" id="val-odometer" value="0.0" step="any" style="width: 80px; text-align: right; background: none; border: none; padding: 0; color: var(--accent-color); font-weight: bold; margin: 0; font-size: inherit;" onchange="updateOdometerOverride(this.value)">
+                    <span style="font-weight: bold; color: var(--accent-color);">km</span>
+                </div>
+            </div>
+            <div class="telemetry-badge" style="display: flex; flex-direction: column; align-items: stretch; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span id="lbl-telemetry-fuel">Remaining Fuel</span>
+                    <span class="value" id="val-fuel">100 %</span>
+                </div>
+                <input type="range" id="val-fuel-slider" min="0" max="100" value="100" style="margin: 0; cursor: pointer; padding: 0;" oninput="updateFuelOverride(this.value)">
+            </div>
+            <div class="telemetry-badge">
+                <span>Est. Range</span>
+                <span class="value" id="val-range">999.0 km</span>
+            </div>
+
+            <div class="section-title">Vehicle Settings</div>
+            <div class="input-group">
+                <label>Vehicle Model (Car/Bike)</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="veh-model" placeholder="e.g. Nexon EV, Activa, Pulsar">
+                    <button type="button" style="width: auto; margin-top: 0; padding: 8px 12px; background: #30363d;" id="btn-detect-veh">Lookup</button>
+                </div>
+                <div class="row-inputs">
+                    <input type="number" id="veh-year" placeholder="Year (e.g. 2022)">
+                    <select id="veh-fuel-type" onchange="adjustTelemetryLabels()">
+                        <option value="petrol">Petrol</option>
+                        <option value="diesel">Diesel</option>
+                        <option value="ev">Electric (EV)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="input-group">
+                <div class="row-inputs">
+                    <div>
+                        <label id="lbl-capacity">Tank Capacity (L)</label>
+                        <input type="number" step="any" id="veh-capacity" placeholder="Capacity" value="45" oninput="recalculateLocalRange()">
+                    </div>
+                    <div>
+                        <label id="lbl-efficiency">Efficiency (km/L)</label>
+                        <input type="number" step="any" id="veh-efficiency" placeholder="Efficiency" value="15" oninput="recalculateLocalRange()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-title">Trip Configurations</div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="use-gps">
+                <label for="use-gps" style="margin: 0; cursor: pointer; color: var(--text-color);">Use Mobile Real-time GPS</label>
+            </div>
+            <div class="input-group">
+                <label>Diet Preference</label>
+                <select id="user-diet">
+                    <option value="any">Any / No Preference</option>
+                    <option value="veg">Strict Vegetarian (Pure Veg)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Current Location / Start Address</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="curr-addr" placeholder="e.g. Athencode">
+                    <button type="button" style="width: auto; margin-top: 0; padding: 8px 12px; background: #30363d;" id="btn-search-curr">Search</button>
+                </div>
+                <div class="row-inputs" style="margin-bottom: 8px;">
+                    <input type="number" step="any" id="curr-lat" placeholder="Latitude">
+                    <input type="number" step="any" id="curr-lon" placeholder="Longitude">
+                </div>
+                <button type="button" style="margin-top: 0; background: var(--accent-color); margin-bottom: 8px;" id="btn-set-curr-coords">Set Current Coordinates</button>
+                <button type="button" class="marker-btn" id="btn-use-map-curr">Click map to set current location</button>
+            </div>
+
+            <div class="input-group">
+                <label>Destination Location / Address</label>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="dest-addr" placeholder="e.g. Marthandam">
+                    <button type="button" style="width: auto; margin-top: 0; padding: 8px 12px; background: #30363d;" id="btn-search-dest">Search</button>
+                </div>
+                <div class="row-inputs">
+                    <input type="number" step="any" id="dest-lat" placeholder="Latitude">
+                    <input type="number" step="any" id="dest-lon" placeholder="Longitude">
+                </div>
+                <button type="button" class="marker-btn" id="btn-use-map-dest">Click map to set destination</button>
+            </div>
+
+            <div class="input-group">
+                <label>What do you need? (User Query)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="user-query" placeholder="e.g. Find a hospital, veg restaurant...">
+                    <button type="button" style="width: auto; margin-top: 0; padding: 8px 12px; background: var(--accent-color);" id="btn-ask-agent">Ask</button>
+                </div>
+            </div>
+
+            <button id="btn-action">Start Trip</button>
+
+            <div class="section-title">AI Agent Recommendation</div>
+            <div id="agent-response-box">
+                <em>Agent is offline. Start the trip to initialize.</em>
+            </div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+
+    <!-- Google Maps JS API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=__GOOGLE_MAPS_API_KEY__&libraries=places"></script>
+    <script>
+        let map;
+        let directionsService;
+        let directionsRenderer;
+
+        // State trackers
+        let tripActive = false;
+        let gpsWatchId = null;
+        let setMode = null; // 'curr' or 'dest'
+        let minDistanceReached = Infinity;
+        let hasTriggeredAlmostNear = false;
+        let hasTriggeredReached = false;
+        let hasTriggeredBypass = false;
+        let lastRouteUpdateTime = 0;
+
+        // Google Maps Markers & Layers
+        let startMarker = null;
+        let currMarker = null;
+        let destMarker = null;
+        let placeMarkers = [];
+        let activeInfoWindow = null;
+
+        // Initialize Google Map
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 8.31639, lng: 77.1791 },
+                zoom: 13,
+                mapTypeControl: true,
+                streetViewControl: true,
+                fullscreenControl: false
+            });
+
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer({
+                map: map,
+                suppressMarkers: true,
+                polylineOptions: {
+                    strokeColor: "#58a6ff",
+                    strokeWeight: 6,
+                    strokeOpacity: 0.8
+                }
+            });
+
+            // Map Click coordinates selector
+            map.addListener("click", (e) => {
+                const lat = e.latLng.lat();
+                const lon = e.latLng.lng();
+                handleMapClick(lat, lon);
+            });
+        }
+
+        // Run map init
+        window.onload = initMap;
+
+        // Audio synthesizer using Web Audio API for chime alerts
+        function playChime(type) {
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const now = ctx.currentTime;
+                if (type === 'near') {
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.setValueAtTime(659.25, now + 0.15); // E5
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else if (type === 'reached') {
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                    osc.frequency.setValueAtTime(1046.50, now + 0.3); // C6
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
+                    osc.start(now);
+                    osc.stop(now + 0.8);
+                } else if (type === 'bypass') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(220, now); // A3
+                    osc.frequency.setValueAtTime(180, now + 0.25);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+                }
+            } catch (e) {
+                console.error("Audio Context playback failed:", e);
+            }
+        }
+
+        // Alert helper
+        function showAlert(msg, type) {
+            const box = document.getElementById('alert-container');
+            box.className = `alert-box alert-${type}`;
+            box.innerText = msg;
+            box.style.display = 'block';
+        }
+
+        function clearAlerts() {
+            document.getElementById('alert-container').style.display = 'none';
+        }
+
+        // Coordinate picker triggers
+        document.getElementById('btn-use-map-curr').addEventListener('click', () => {
+            setMode = 'curr';
+            showAlert("Click anywhere on the map to set Current Location coordinates.", "info");
+        });
+
+        document.getElementById('btn-use-map-dest').addEventListener('click', () => {
+            setMode = 'dest';
+            showAlert("Click anywhere on the map to set Destination coordinates.", "info");
+        });
+
+        function disableGpsTracking() {
+            const gpsCheckbox = document.getElementById('use-gps');
+            if (gpsCheckbox.checked) {
+                gpsCheckbox.checked = false;
+                if (gpsWatchId) {
+                    navigator.geolocation.clearWatch(gpsWatchId);
+                    gpsWatchId = null;
+                }
+                document.getElementById('gps-status').innerText = "GPS Paused (Manual Control)";
+            }
+        }
+
+        function handleMapClick(lat, lon) {
+            if (setMode === 'curr') {
+                disableGpsTracking();
+                document.getElementById('curr-lat').value = lat;
+                document.getElementById('curr-lon').value = lon;
+                updateMapMarker('curr', lat, lon);
+                clearAlerts();
+                setMode = null;
+                if (tripActive) sendUpdateToServer(lat, lon);
+            } else if (setMode === 'dest') {
+                document.getElementById('dest-lat').value = lat;
+                document.getElementById('dest-lon').value = lon;
+                updateMapMarker('dest', lat, lon);
+                clearAlerts();
+                setMode = null;
+            }
+        }
+
+        // Update Markers (Drag-aware for current location)
+        function updateMapMarker(type, lat, lon, force = false) {
+            const position = { lat: lat, lng: lon };
+            if (type === 'curr') {
+                if (currMarker) {
+                    currMarker.setPosition(position);
+                } else {
+                    currMarker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: "Current Location",
+                        draggable: true,
+                        icon: {
+                            url: 'https://cdn-icons-png.flaticon.com/512/744/744465.png',
+                            scaledSize: new google.maps.Size(32, 32),
+                            origin: new google.maps.Point(0, 0),
+                            anchor: new google.maps.Point(16, 16)
+                        }
+                    });
+                    currMarker.addListener('dragstart', function () {
+                        disableGpsTracking();
+                    });
+                    currMarker.addListener('dragend', function () {
+                        const pos = currMarker.getPosition();
+                        document.getElementById('curr-lat').value = pos.lat();
+                        document.getElementById('curr-lon').value = pos.lng();
+                        updatePathLine(true);
+                        if (tripActive) sendUpdateToServer(pos.lat(), pos.lng());
+                    });
+                }
+            } else if (type === 'dest') {
+                if (destMarker) {
+                    destMarker.setPosition(position);
+                } else {
+                    destMarker = new google.maps.Marker({
+                        position: position,
+                        map: map,
+                        title: "Destination",
+                        icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png'
+                    });
+                }
+            }
+            updatePathLine(force);
+        }
+
+        // Official Google road driving directions
+        function updatePathLine(force = false) {
+            if (currMarker && destMarker) {
+                const now = Date.now();
+                // Throttle updates to once every 4 seconds to save API requests,
+                // but always allow if force is true.
+                if (!force && directionsRenderer && (now - lastRouteUpdateTime < 4000)) {
+                    return;
+                }
+                lastRouteUpdateTime = now;
+
+                directionsService.route({
+                    origin: currMarker.getPosition(),
+                    destination: destMarker.getPosition(),
+                    travelMode: google.maps.TravelMode.DRIVING
+                }, (response, status) => {
+                    if (status === 'OK') {
+                        directionsRenderer.setDirections(response);
+                    } else {
+                        console.error('Directions request failed: ' + status);
+                        showAlert(`Directions Service failed: ${status}. Make sure "Directions API" is enabled in your Google Cloud Console.`, "warning");
+                    }
+                });
+            }
+        }
+
+        // Clear markers from Google Map
+        function clearPlaceMarkers() {
+            placeMarkers.forEach(m => m.setMap(null));
+            placeMarkers = [];
+        }
+
+        // Render markers for recommended places returned by agent searches
+        function renderRecommendedMarkers(places) {
+            clearPlaceMarkers();
+            if (places && places.length > 0) {
+                places.forEach(p => {
+                    // Green pins for on-route, Yellow pins for detours
+                    const pinColor = p.route_relation === 'on-route' ? 'green' : 'yellow';
+                    const iconUrl = `http://maps.google.com/mapfiles/ms/icons/${pinColor}-dot.png`;
+                    
+                    const m = new google.maps.Marker({
+                        position: { lat: p.lat, lng: p.lon },
+                        map: map,
+                        title: p.name,
+                        icon: iconUrl
+                    });
+                    
+                    const content = `
+                        <div style="color: #000; font-family: sans-serif; font-size: 0.85rem; padding: 4px;">
+                            <b style="font-size: 0.95rem;">${p.name}</b><br>
+                            <strong>Type:</strong> ${p.type}<br>
+                            <strong>Detour:</strong> +${p.detour_km} km (${p.route_relation})
+                        </div>
+                    `;
+                    
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: content
+                    });
+                    
+                    m.addListener('click', () => {
+                        if (activeInfoWindow) activeInfoWindow.close();
+                        infoWindow.open(map, m);
+                        activeInfoWindow = infoWindow;
+                    });
+                    
+                    placeMarkers.push(m);
+                });
+            }
+        }
+
+        // API starts here
+        async function startTrip() {
+            const startLat = parseFloat(document.getElementById('curr-lat').value);
+            const startLon = parseFloat(document.getElementById('curr-lon').value);
+            const destLat = parseFloat(document.getElementById('dest-lat').value);
+            const destLon = parseFloat(document.getElementById('dest-lon').value);
+            const query = document.getElementById('user-query').value;
+
+            if (isNaN(startLat) || isNaN(startLon)) {
+                showAlert("Please set a valid Current Location first.", "danger");
+                return;
+            }
+
+            const modelName = document.getElementById('veh-model').value.trim();
+            const yearVal = parseInt(document.getElementById('veh-year').value);
+            const fuelType = document.getElementById('veh-fuel-type').value;
+            const capacityVal = parseFloat(document.getElementById('veh-capacity').value);
+            const efficiencyVal = parseFloat(document.getElementById('veh-efficiency').value);
+
+            const payload = {
+                start_odometer: parseFloat(document.getElementById('val-odometer').value) || 0,
+                start_fuel_percentage: parseFloat(document.getElementById('val-fuel-slider').value) || 100,
+                user_diet: document.getElementById('user-diet').value,
+                start_location: { lat: startLat, lon: startLon },
+                current_location: { lat: startLat, lon: startLon }
+            };
+
+            if (modelName && !isNaN(capacityVal) && !isNaN(efficiencyVal)) {
+                payload.vehicle = {
+                    model: modelName,
+                    year: isNaN(yearVal) ? 2023 : yearVal,
+                    fuel_type: fuelType,
+                    capacity: capacityVal,
+                    efficiency: efficiencyVal
+                };
+            }
+
+            if (!isNaN(destLat) && !isNaN(destLon)) {
+                payload.destination_location = { lat: destLat, lon: destLon };
+            }
+            if (query) {
+                payload.user_query = query;
+            }
+
+            try {
+                const response = await fetch('/trip/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                
+                tripActive = true;
+                minDistanceReached = Infinity;
+                hasTriggeredAlmostNear = false;
+                hasTriggeredReached = false;
+                hasTriggeredBypass = false;
+
+                const btn = document.getElementById('btn-action');
+                btn.innerText = "Stop Trip";
+                btn.className = "stop";
+
+                updateTelemetryDisplay(data.odometer, data.fuel_percentage, data.remaining_range_km);
+
+                if (data.agent_reasoning) {
+                    document.getElementById('agent-response-box').innerHTML = `<strong>Agent:</strong> ${data.agent_reasoning}`;
+                }
+                if (startMarker) {
+                    startMarker.setMap(null);
+                }
+                startMarker = new google.maps.Marker({
+                    position: { lat: startLat, lng: startLon },
+                    map: map,
+                    title: "Starting Point",
+                    icon: 'http://maps.google.com/mapfiles/ms/icons/purple-dot.png'
+                });
+                updateMapMarker('curr', startLat, startLon, true);
+                renderRecommendedMarkers(data.recommended_places);
+                updatePathLine(true);
+
+                showAlert("Trip started successfully!", "success");
+
+                if (document.getElementById('use-gps').checked) {
+                    startGpsTracking();
+                }
+
+            } catch (err) {
+                showAlert(`Failed to start trip: ${err}`, "danger");
+            }
+        }
+
+        function stopTrip() {
+            tripActive = false;
+            if (gpsWatchId) {
+                navigator.geolocation.clearWatch(gpsWatchId);
+                gpsWatchId = null;
+            }
+            if (directionsRenderer) {
+                directionsRenderer.setDirections({ routes: [] });
+            }
+            if (startMarker) {
+                startMarker.setMap(null);
+                startMarker = null;
+            }
+            if (currMarker) {
+                currMarker.setMap(null);
+                currMarker = null;
+            }
+            if (destMarker) {
+                destMarker.setMap(null);
+                destMarker = null;
+            }
+            clearPlaceMarkers();
+            const btn = document.getElementById('btn-action');
+            btn.innerText = "Start Trip";
+            btn.className = "";
+            showAlert("Trip stopped.", "warning");
+        }
+
+        // Live GPS watch position handler
+        function startGpsTracking() {
+            if (!("geolocation" in navigator)) {
+                showAlert("Geolocation is not supported by your browser.", "danger");
+                return;
+            }
+
+            document.getElementById('gps-status').innerText = "Acquiring GPS Signal...";
+            gpsWatchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
+                    
+                    document.getElementById('gps-status').innerText = `GPS Active (Acc: ${Math.round(pos.coords.accuracy)}m)`;
+                    document.getElementById('curr-lat').value = lat;
+                    document.getElementById('curr-lon').value = lon;
+                    
+                    updateMapMarker('curr', lat, lon);
+                    map.panTo({ lat, lng: lon });
+
+                    if (tripActive) {
+                        sendUpdateToServer(lat, lon);
+                    }
+                },
+                (err) => {
+                    document.getElementById('gps-status').innerText = "GPS Error";
+                    showAlert(`GPS tracking error: ${err.message}. Switch to manual updates.`, "danger");
+                },
+                { enableHighAccuracy: true, maximumAge: 1000 }
+            );
+        }
+
+        // Handle sending location to backend + calculations + agent response
+        async function sendUpdateToServer(lat, lon, fuelOverrideVal = null, odoOverrideVal = null) {
+            const destLat = parseFloat(document.getElementById('dest-lat').value);
+            const destLon = parseFloat(document.getElementById('dest-lon').value);
+            const query = document.getElementById('user-query').value;
+
+            const payload = {
+                live_location: { lat, lon },
+                user_diet: document.getElementById('user-diet').value
+            };
+
+            if (fuelOverrideVal !== null) {
+                payload.fuel_percentage = fuelOverrideVal;
+            }
+            if (odoOverrideVal !== null) {
+                payload.odometer = odoOverrideVal;
+            }
+
+            if (!isNaN(destLat) && !isNaN(destLon)) {
+                payload.destination_location = { lat: destLat, lon: destLon };
+            }
+            if (query) {
+                payload.user_query = query;
+            }
+
+            try {
+                const response = await fetch('/trip/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                updateTelemetryDisplay(data.odometer, data.fuel_percentage, data.remaining_range_km);
+
+                if (data.agent_reasoning) {
+                    document.getElementById('agent-response-box').innerHTML = `<strong>Agent:</strong> ${data.agent_reasoning}`;
+                }
+                renderRecommendedMarkers(data.recommended_places);
+
+                // GPS Alerts & Distance math
+                if (!isNaN(destLat) && !isNaN(destLon)) {
+                    // Quick haversine in JS for frontend alert triggers
+                    const R = 6371e3; // meters
+                    const phi1 = lat * Math.PI/180;
+                    const phi2 = destLat * Math.PI/180;
+                    const deltaPhi = (destLat-lat) * Math.PI/180;
+                    const deltaLambda = (destLon-lon) * Math.PI/180;
+
+                    const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+                              Math.cos(phi1) * Math.cos(phi2) *
+                              Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const distanceMeters = R * c;
+
+                    if (distanceMeters < minDistanceReached) {
+                        minDistanceReached = distanceMeters;
+                    }
+
+                    if (distanceMeters <= 300 && distanceMeters > 50 && !hasTriggeredAlmostNear) {
+                        hasTriggeredAlmostNear = true;
+                        playChime('near');
+                        showAlert(`🚨 Destination ahead! You are almost near (${Math.round(distanceMeters)}m remaining).`, "info");
+                    }
+
+                    if (distanceMeters <= 50 && !hasTriggeredReached) {
+                        hasTriggeredReached = true;
+                        playChime('reached');
+                        showAlert(`🎉 Congratulations! You have reached your destination.`, "success");
+                    }
+
+                    if (minDistanceReached < 200 && distanceMeters > 250 && !hasTriggeredBypass) {
+                        hasTriggeredBypass = true;
+                        playChime('bypass');
+                        showAlert(`⚠️ Alert! You have bypassed your destination (getting further away: ${Math.round(distanceMeters)}m).`, "warning");
+                    }
+                }
+            } catch (err) {
+                console.error("Update failed:", err);
+            }
+        }
+
+        // Geocode Address Search Handler
+        async function resolveAddress(addressInputId, latInputId, lonInputId, markerType) {
+            const address = document.getElementById(addressInputId).value.trim();
+            if (!address) {
+                showAlert("Please enter an address to search.", "warning");
+                return;
+            }
+            showAlert(`Searching for '${address}'...`, "info");
+            try {
+                const response = await fetch(`/trip/geocode?address=${encodeURIComponent(address)}`);
+                if (!response.ok) throw new Error("Location not found.");
+                const data = await response.json();
+                
+                document.getElementById(latInputId).value = data.lat;
+                document.getElementById(lonInputId).value = data.lon;
+                
+                updateMapMarker(markerType, data.lat, data.lon, true);
+                map.setCenter({ lat: data.lat, lng: data.lon });
+                map.setZoom(14);
+                
+                showAlert(`Resolved: ${data.display_name}`, "success");
+            } catch (err) {
+                showAlert(`Failed to resolve address: ${err.message}`, "danger");
+            }
+        }
+
+        async function triggerAgentSearch() {
+            const startLat = parseFloat(document.getElementById('curr-lat').value);
+            const startLon = parseFloat(document.getElementById('curr-lon').value);
+            if (isNaN(startLat) || isNaN(startLon)) {
+                showAlert("Please set a valid Current Location first.", "danger");
+                return;
+            }
+            
+            if (!tripActive) {
+                await startTrip();
+                return;
+            }
+            
+            showAlert("Sending query to AI Agent...", "info");
+            await sendUpdateToServer(startLat, startLon);
+            showAlert("Agent updated!", "success");
+        }
+
+        document.getElementById('btn-ask-agent').addEventListener('click', triggerAgentSearch);
+        document.getElementById('user-query').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                triggerAgentSearch();
+            }
+        });
+
+        function adjustTelemetryLabels() {
+            const fuelType = document.getElementById('veh-fuel-type').value;
+            const lblFuel = document.getElementById('lbl-telemetry-fuel');
+            const lblCapacity = document.getElementById('lbl-capacity');
+            const lblEfficiency = document.getElementById('lbl-efficiency');
+            
+            if (fuelType === 'ev') {
+                lblFuel.innerText = "Remaining Battery";
+                lblCapacity.innerText = "Battery Capacity (kWh)";
+                lblEfficiency.innerText = "Efficiency (km/kWh)";
+                document.getElementById('val-fuel').innerText = "100 %";
+            } else {
+                lblFuel.innerText = "Remaining Fuel";
+                lblCapacity.innerText = "Tank Capacity (L)";
+                lblEfficiency.innerText = "Efficiency (km/L)";
+                document.getElementById('val-fuel').innerText = "100 %";
+            }
+            recalculateLocalRange();
+        }
+
+        async function detectVehicleSpecs() {
+            const modelName = document.getElementById('veh-model').value.trim();
+            const yearVal = document.getElementById('veh-year').value.trim();
+            
+            if (!modelName) {
+                showAlert("Please enter a vehicle model name to lookup.", "warning");
+                return;
+            }
+            
+            showAlert(`Querying AI Agent for vehicle specifications...`, "info");
+            
+            try {
+                const payload = { model: modelName };
+                if (yearVal) {
+                    payload.year = parseInt(yearVal);
+                }
+                
+                const response = await fetch('/trip/vehicle-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) throw new Error("Failed to lookup vehicle specifications.");
+                const data = await response.json();
+                
+                document.getElementById('veh-fuel-type').value = data.fuel_type;
+                document.getElementById('veh-capacity').value = data.capacity;
+                document.getElementById('veh-efficiency').value = data.efficiency;
+                
+                adjustTelemetryLabels();
+                recalculateLocalRange();
+                showAlert(`Specs Loaded! ${data.reasoning}`, "success");
+            } catch (err) {
+                showAlert(`Vehicle lookup error: ${err.message}`, "danger");
+            }
+        }
+
+        function recalculateLocalRange() {
+            const capacity = parseFloat(document.getElementById('veh-capacity').value);
+            const efficiency = parseFloat(document.getElementById('veh-efficiency').value);
+            const fuelSlider = document.getElementById('val-fuel-slider');
+            const fuelPct = fuelSlider ? parseFloat(fuelSlider.value) : 100;
+            
+            if (!isNaN(capacity) && !isNaN(efficiency)) {
+                const estRange = capacity * efficiency * (fuelPct / 100.0);
+                document.getElementById('val-range').innerText = `${estRange.toFixed(2)} km`;
+            } else {
+                document.getElementById('val-range').innerText = "999.0 km";
+            }
+        }
+        
+        function updateTelemetryDisplay(odometer, fuel, range) {
+            const odoInput = document.getElementById('val-odometer');
+            const fuelLabel = document.getElementById('val-fuel');
+            const fuelSlider = document.getElementById('val-fuel-slider');
+            const rangeLabel = document.getElementById('val-range');
+            
+            const odoVal = isNaN(parseFloat(odometer)) ? 0.0 : parseFloat(odometer);
+            const fuelVal = isNaN(parseFloat(fuel)) ? 100.0 : parseFloat(fuel);
+            const rangeVal = isNaN(parseFloat(range)) ? 999.0 : parseFloat(range);
+
+            if (odoInput) odoInput.value = odoVal.toFixed(2);
+            if (fuelLabel) fuelLabel.innerText = `${fuelVal.toFixed(1)} %`;
+            if (fuelSlider) fuelSlider.value = fuelVal;
+            if (rangeLabel) rangeLabel.innerText = `${rangeVal.toFixed(2)} km`;
+        }
+
+        async function updateOdometerOverride(val) {
+            if (!tripActive) return;
+            const odo = parseFloat(val);
+            if (isNaN(odo)) return;
+            const startLat = parseFloat(document.getElementById('curr-lat').value);
+            const startLon = parseFloat(document.getElementById('curr-lon').value);
+            if (!isNaN(startLat) && !isNaN(startLon)) {
+                await sendUpdateToServer(startLat, startLon, null, odo);
+            }
+        }
+
+        async function updateFuelOverride(val) {
+            const fuelPct = parseFloat(val);
+            document.getElementById('val-fuel').innerText = `${fuelPct} %`;
+            recalculateLocalRange();
+            if (!tripActive) return;
+            const startLat = parseFloat(document.getElementById('curr-lat').value);
+            const startLon = parseFloat(document.getElementById('curr-lon').value);
+            if (!isNaN(startLat) && !isNaN(startLon)) {
+                await sendUpdateToServer(startLat, startLon, fuelPct, null);
+            }
+        }
+
+        document.getElementById('btn-set-curr-coords').addEventListener('click', () => {
+            disableGpsTracking();
+            const lat = parseFloat(document.getElementById('curr-lat').value);
+            const lon = parseFloat(document.getElementById('curr-lon').value);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                updateMapMarker('curr', lat, lon, true);
+                map.panTo({ lat, lng: lon });
+                if (tripActive) sendUpdateToServer(lat, lon);
+                showAlert(`Current location updated manually to ${lat}, ${lon}`, "success");
+            } else {
+                showAlert("Please enter valid Latitude and Longitude coordinates.", "warning");
+            }
+        });
+
+        document.getElementById('curr-lat').addEventListener('change', () => {
+            disableGpsTracking();
+            const lat = parseFloat(document.getElementById('curr-lat').value);
+            const lon = parseFloat(document.getElementById('curr-lon').value);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                updateMapMarker('curr', lat, lon, true);
+                if (tripActive) sendUpdateToServer(lat, lon);
+            }
+        });
+        document.getElementById('curr-lon').addEventListener('change', () => {
+            disableGpsTracking();
+            const lat = parseFloat(document.getElementById('curr-lat').value);
+            const lon = parseFloat(document.getElementById('curr-lon').value);
+            if (!isNaN(lat) && !isNaN(lon)) {
+                updateMapMarker('curr', lat, lon, true);
+                if (tripActive) sendUpdateToServer(lat, lon);
+            }
+        });
+
+        document.getElementById('btn-detect-veh').addEventListener('click', detectVehicleSpecs);
+
+        document.getElementById('btn-search-curr').addEventListener('click', () => {
+            resolveAddress('curr-addr', 'curr-lat', 'curr-lon', 'curr');
+        });
+
+        document.getElementById('btn-search-dest').addEventListener('click', () => {
+            resolveAddress('dest-addr', 'dest-lat', 'dest-lon', 'dest');
+        });
+
+        document.getElementById('btn-action').addEventListener('click', () => {
+            if (tripActive) {
+                stopTrip();
+            } else {
+                startTrip();
+            }
+        });
+    </script>
+</body>
+</html>
